@@ -37,58 +37,85 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Syntax check — all Python files
+      - name: Syntax check — all Python files (recursive)
         run: |
-          echo "Checking syntax..."
-          python -m py_compile app.py   && echo "  OK: app.py"
-          python -m py_compile game.py  && echo "  OK: game.py"
-          for f in src/*.py; do
-            python -m py_compile "$f"   && echo "  OK: $f"
-          done
-          echo "All syntax checks passed ✅"
+          echo "Checking syntax (recursive)..."
+          python - <<'PY'
+          import sys
+          from pathlib import Path
 
-      # PYTHONPATH=. is REQUIRED so 'import src' resolves from repo root
-      - name: Import smoke test
+          files = sorted(Path(".").rglob("*.py"))
+          if not files:
+              print("No .py files found")
+              sys.exit(1)
+
+          for f in files:
+              try:
+                  compile(f.read_text(encoding="utf-8"), str(f), "exec")
+              except Exception as e:
+                  print(f"❌ Syntax error in {f}: {e}")
+                  raise
+              else:
+                  print(f"  OK: {f}")
+          print("\n✅ All syntax checks passed")
+          PY
+
+      - name: Import smoke test (repo layout)
         env:
           PYTHONPATH: "."
           CI: "true"
         run: |
-          python - <<'PYEOF'
-          import cv2
-          # Patch camera — CI has no webcam
-          cv2.VideoCapture = lambda *a, **k: None
-
-          from src.colors           import C
-          from src.config           import MODE_CONFIGS, MODE_ORDER, GameState
-          from src.math_utils       import MathUtils
-          from src.particles        import ParticleSystem
-          from src.score_popup      import ScorePopup
-          from src.target_ball      import TargetBall
-          from src.hud              import HUD
-          from src.sound_engine     import SoundEngine
-          from src.menu             import MenuScreen
+          python - <<'PY'
+          # Validate imports from app/game.py (this is the real module in this repo)
+          from app.game import (
+              C,
+              GameState,
+              MODE_CONFIGS,
+              MODE_ORDER,
+              MathUtils,
+              ParticleSystem,
+              ScorePopup,
+              TargetBall,
+              HUD,
+              SoundEngine,
+              MenuScreen,
+              HandTrackingGame,
+          )
 
           # Validate mode configs
-          assert set(MODE_ORDER) == {"classic", "time_attack", "practice"}, \
-              f"Wrong modes: {MODE_ORDER}"
+          assert set(MODE_ORDER) == {"classic", "time_attack", "practice"}, f"Wrong modes: {MODE_ORDER}"
           for k in MODE_ORDER:
               cfg = MODE_CONFIGS[k]
-              for required in ("description", "icon_color", "key_hint",
-                               "ball_size", "ball_speed", "has_timer"):
+              for required in ("description", "icon_color", "key_hint", "ball_size", "ball_speed", "has_timer"):
                   assert required in cfg, f"Missing '{required}' in mode '{k}'"
 
-          # Sound engine must be silent in CI (no audio device)
+          # Sound engine should be silent in CI (no audio device)
           se = SoundEngine()
-          assert se._mode == "silent", \
-              f"Expected silent in CI, got: {se._mode}"
-          print(f"  SoundEngine mode: {se._mode} ✅ (correct for CI)")
+          assert se._mode == "silent", f"Expected silent in CI, got: {se._mode}"
 
-          print("\n✅ All imports and assertions passed")
+          # Basic sanity: class is constructible (doesn't open webcam in __init__)
+          _ = HandTrackingGame(width=320, height=240)
+
+          print("✅ app.game imports + assertions passed")
           print(f"   Modes: {MODE_ORDER}")
-          PYEOF
+          print(f"   SoundEngine mode: {se._mode}")
+          PY
+
+      - name: Import smoke test (Streamlit entrypoint module-style import)
+        env:
+          # app/main.py does: `from game import HandTrackingGame`
+          # so we add ./app to PYTHONPATH to make `game` resolve.
+          PYTHONPATH: "./app"
+          CI: "true"
+        run: |
+          python - <<'PY'
+          # Ensure Streamlit entrypoint can be imported without crashing the interpreter
+          import main  # noqa: F401
+          print("✅ app/main.py import passed (PYTHONPATH=./app)")
+          PY
 
       - name: Verify packages.txt entries exist in apt
         run: |
@@ -102,4 +129,4 @@ jobs:
               exit 1
             fi
           done < packages.txt
-          echo "All packages valid ✅"
+          echo "✅ All packages valid"
