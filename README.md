@@ -1,8 +1,8 @@
 # 🎯 Hand Gun Shooting Game
 ### AI + Computer Vision — Children Edition
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
-[![CI](https://github.com/YOUR_USERNAME/hand-shooter-game/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/hand-shooter-game/actions)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://hand-shooter-game.streamlit.app/)
+[![CI](https://github.com/shivamsaurabh76/hand-shooter-game/actions/workflows/ci.yml/badge.svg)](https://github.com/shivamsaurabh76/hand-shooter-game/actions)
 
 > Point your hand at the camera, **open** your hand to aim, **squeeze** your fist to shoot!  
 > Works on mobile, tablet, laptop, and desktop. No controller or joystick needed.
@@ -74,7 +74,7 @@ git add .
 git commit -m "🎯 Initial commit — Hand Shooter Game"
 
 # 5. Create a new repo on github.com first, then:
-git remote add origin https://github.com/YOUR_USERNAME/hand-shooter-game.git
+git remote add origin https://github.com/shivamsaurabh76/hand-shooter-game.git
 git branch -M main
 git push -u origin main
 ```
@@ -89,7 +89,7 @@ git push -u origin main
 6. Wait ~3 minutes for the first build — done! 🎉
 
 > **Your live link** will be:  
-> `https://YOUR_USERNAME-hand-shooter-game-appmain-XXXX.streamlit.app`
+> `https://hand-shooter-game.streamlit.app/`
 
 ### Step 3 — Auto-redeploy
 
@@ -102,7 +102,7 @@ No extra steps needed.
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/hand-shooter-game.git
+git clone https://github.com/shivamsaurabh76/hand-shooter-game.git
 cd hand-shooter-game
 
 # Create virtual environment (recommended)

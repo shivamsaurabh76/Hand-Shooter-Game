@@ -1,6 +1,3 @@
-# ── GitHub Actions CI ────────────────────────────────────────────────
-# Fixed for Ubuntu 24.04 (Noble): libgl1-mesa-glx → libgl1 + libglx-mesa0
-
 name: CI
 
 on:
@@ -12,7 +9,7 @@ on:
 jobs:
   lint-and-deps:
     name: Lint & Dependency Check
-    runs-on: ubuntu-latest        # Ubuntu 24.04 (Noble) as of 2024
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -25,10 +22,8 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      # ── Ubuntu 24.04 fix ─────────────────────────────────────────
-      # libgl1-mesa-glx was REMOVED in Ubuntu 24.04 (Noble).
-      # Replace with: libgl1 (provides libGL.so.1) + libglx-mesa0
-      - name: Install system dependencies (Ubuntu 24.04 compatible)
+      # Ubuntu 24.04 (Noble): libgl1-mesa-glx was removed
+      - name: Install system dependencies
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
@@ -48,18 +43,22 @@ jobs:
       - name: Syntax check — all Python files
         run: |
           echo "Checking syntax..."
-          python -m py_compile app.py      && echo "  OK: app.py"
-          python -m py_compile game.py     && echo "  OK: game.py"
+          python -m py_compile app.py   && echo "  OK: app.py"
+          python -m py_compile game.py  && echo "  OK: game.py"
           for f in src/*.py; do
-            python -m py_compile "$f"      && echo "  OK: $f"
+            python -m py_compile "$f"   && echo "  OK: $f"
           done
           echo "All syntax checks passed ✅"
 
+      # PYTHONPATH=. is REQUIRED so 'import src' resolves from repo root
       - name: Import smoke test
+        env:
+          PYTHONPATH: "."
+          CI: "true"
         run: |
           python - <<'PYEOF'
-          # Patch cv2.VideoCapture so no camera is needed in CI
           import cv2
+          # Patch camera — CI has no webcam
           cv2.VideoCapture = lambda *a, **k: None
 
           from src.colors           import C
@@ -72,22 +71,26 @@ jobs:
           from src.sound_engine     import SoundEngine
           from src.menu             import MenuScreen
 
-          # Quick sanity assertions
-          assert set(MODE_ORDER) == {"classic", "time_attack", "practice"}
+          # Validate mode configs
+          assert set(MODE_ORDER) == {"classic", "time_attack", "practice"}, \
+              f"Wrong modes: {MODE_ORDER}"
           for k in MODE_ORDER:
               cfg = MODE_CONFIGS[k]
-              assert "description" in cfg, f"Missing description in {k}"
-              assert "icon_color"  in cfg, f"Missing icon_color in {k}"
-              assert "key_hint"    in cfg, f"Missing key_hint in {k}"
+              for required in ("description", "icon_color", "key_hint",
+                               "ball_size", "ball_speed", "has_timer"):
+                  assert required in cfg, f"Missing '{required}' in mode '{k}'"
 
+          # Sound engine must be silent in CI (no audio device)
           se = SoundEngine()
-          print(f"  SoundEngine backend: {se._mode}")
+          assert se._mode == "silent", \
+              f"Expected silent in CI, got: {se._mode}"
+          print(f"  SoundEngine mode: {se._mode} ✅ (correct for CI)")
 
-          print("\nAll src modules imported and validated ✅")
-          print(f"  Modes: {MODE_ORDER}")
+          print("\n✅ All imports and assertions passed")
+          print(f"   Modes: {MODE_ORDER}")
           PYEOF
 
-      - name: Verify packages.txt only has Ubuntu 24.04 packages
+      - name: Verify packages.txt entries exist in apt
         run: |
           echo "Verifying packages.txt..."
           while IFS= read -r pkg || [[ -n "$pkg" ]]; do
@@ -95,8 +98,8 @@ jobs:
             if apt-cache show "$pkg" > /dev/null 2>&1; then
               echo "  OK: $pkg"
             else
-              echo "  MISSING: $pkg — not found in apt cache!"
+              echo "  ❌ MISSING: $pkg"
               exit 1
             fi
           done < packages.txt
-          echo "All packages.txt entries valid ✅"
+          echo "All packages valid ✅"
