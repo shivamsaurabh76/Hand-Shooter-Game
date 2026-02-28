@@ -1,0 +1,60 @@
+name: 🎯 Hand Shooter — CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ── Lint & dependency check ───────────────────────────────────────
+  lint-and-check:
+    name: Lint & Dependency Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 📦 Install system deps
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 libgomp1
+
+      - name: 📦 Install Python deps
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: ✅ Syntax check (py compile)
+        run: |
+          python -m py_compile app/game.py
+          python -m py_compile app/main.py
+          echo "✅ All files compile cleanly"
+
+      - name: 🔍 Import check
+        run: |
+          python -c "from app.game import HandTrackingGame; print('✅ HandTrackingGame importable')"
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+  # ── Notify success ────────────────────────────────────────────────
+  deploy-notice:
+    name: Deployment Reminder
+    runs-on: ubuntu-latest
+    needs: lint-and-check
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: 🚀 Deployment notice
+        run: |
+          echo "=============================================="
+          echo "✅  CI passed — push to GitHub triggers"
+          echo "    automatic redeploy on Streamlit Cloud."
+          echo "=============================================="

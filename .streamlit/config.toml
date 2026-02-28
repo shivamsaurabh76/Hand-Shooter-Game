@@ -1,0 +1,22 @@
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+port = 8501
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+backgroundColor = "#0a0a14"
+secondaryBackgroundColor = "#14141f"
+textColor = "#e8e8f0"
+primaryColor = "#FFD700"
+
+[runner]
+fastReruns = true
+
+[logger]
+level = "warning"
