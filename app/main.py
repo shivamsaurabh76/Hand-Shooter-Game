@@ -403,27 +403,30 @@ class GameProcessor(VideoProcessorBase):
 #  WEBRTC STREAMER
 # ══════════════════════════════════════════════════════════════════════
 
-ctx = webrtc_streamer(
-    key="hand-shooter-game",
-    mode=WebRtcMode.SENDRECV,
-    video_processor_factory=GameProcessor,
-    media_stream_constraints={
-        "video": {
-            "width":      {"ideal": 640, "max": 1280},
-            "height":     {"ideal": 480, "max": 720},
-            "facingMode": "user",
+if st.runtime.exists():
+    ctx = webrtc_streamer(
+        key="hand-shooter-game",
+        mode=WebRtcMode.SENDRECV,
+        video_processor_factory=GameProcessor,
+        media_stream_constraints={
+            "video": {
+                "width":      {"ideal": 640, "max": 1280},
+                "height":     {"ideal": 480, "max": 720},
+                "facingMode": "user",
+            },
+            "audio": False,
         },
-        "audio": False,
-    },
-    async_processing=True,
-    rtc_configuration={
-        "iceServers": [
-            {"urls": ["stun:stun.l.google.com:19302"]},
-            {"urls": ["stun:stun1.l.google.com:19302"]},
-            {"urls": ["stun:stun2.l.google.com:19302"]},
-        ]
-    },
-)
+        async_processing=True,
+        rtc_configuration={
+            "iceServers": [
+                {"urls": ["stun:stun.l.google.com:19302"]},
+                {"urls": ["stun:stun1.l.google.com:19302"]},
+                {"urls": ["stun:stun2.l.google.com:19302"]},
+            ]
+        },
+    )
+else:
+    ctx = None
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -434,7 +437,7 @@ ctx = webrtc_streamer(
 if "snd_seq"   not in st.session_state: st.session_state["snd_seq"]   = 0
 if "snd_combo" not in st.session_state: st.session_state["snd_combo"] = 0
 
-if ctx.state.playing and ctx.video_processor:
+if ctx is not None and ctx.state.playing and ctx.video_processor:
     with ctx.video_processor.lock:
         new_seq   = ctx.video_processor.hit_seq
         new_combo = ctx.video_processor.hit_combo
@@ -447,14 +450,15 @@ if ctx.state.playing and ctx.video_processor:
         st.rerun()
 
 # Always render sound iframe (deduplication is inside JS via sessionStorage)
-render_sound(st.session_state["snd_seq"], st.session_state["snd_combo"])
+if ctx is not None:
+    render_sound(st.session_state["snd_seq"], st.session_state["snd_combo"])
 
 
 # ══════════════════════════════════════════════════════════════════════
 #  GAME MODE BUTTONS
 # ══════════════════════════════════════════════════════════════════════
 
-if ctx.state.playing and ctx.video_processor:
+if ctx is not None and ctx.state.playing and ctx.video_processor:
     st.markdown('<p class="section-title">🎮 Choose Game Mode</p>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
 
@@ -480,7 +484,7 @@ if ctx.state.playing and ctx.video_processor:
 #  HOW TO PLAY
 # ══════════════════════════════════════════════════════════════════════
 
-with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=not ctx.state.playing):
+with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=ctx is None or not ctx.state.playing):
     st.markdown("""
 <div class="info-card">
   <b>👋 The Gesture is SUPER SIMPLE:</b><br><br>
