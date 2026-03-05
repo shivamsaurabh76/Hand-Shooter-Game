@@ -1,6 +1,20 @@
+# System packages for Streamlit Community Cloud (Debian Trixie / Debian 13)
+#
+# IMPORTANT — Streamlit Cloud migrated from Debian 11 (Bullseye) to Debian Trixie.
+# All packages must be compatible with Debian Trixie.
+#
+# libgl1          → provides libGL.so.1 (OpenCV, MediaPipe)
+# libglx-mesa0    → Mesa OpenGL extension
+# libglib2.0-0t64 → GLib runtime (Trixie renamed with t64 suffix)
+# libsm6          → X11 Session Management
+# libxext6        → X11 extensions (already present, listed for clarity)
+# libxrender1     → X11 rendering (runtime only, not -dev)
+# libgomp1        → OpenMP (MediaPipe inference)
+
 libgl1
-libglib2.0-0
+libglx-mesa0
+libglib2.0-0t64
 libsm6
-libxrender1
 libxext6
+libxrender1
 libgomp1
