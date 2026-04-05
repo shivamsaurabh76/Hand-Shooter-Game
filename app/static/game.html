@@ -646,23 +646,31 @@ function showReady(){
   ctx.fillText('Click START to begin',W/2,H/2+20);ctx.textAlign='left';
   statusEl.textContent='Ready — click START to enable camera and play';
 }
+function hideLoader(){
+  loadDiv.style.display='none';
+  loadDiv.style.visibility='hidden';
+  loadDiv.style.opacity='0';
+  loadDiv.style.pointerEvents='none';
+  loadDiv.setAttribute('hidden','');
+}
 function showError(msg){
   if(rafId){cancelAnimationFrame(rafId);rafId=null;}
   stopCamera();
-  loadDiv.style.display='none';readyDiv.style.display='none';
+  hideLoader();readyDiv.style.display='none';
   ctrlBar.style.display='none';errDiv.style.display='flex';
   errTxt.textContent=msg;
   statusEl.textContent='Error';
 }
 function showPlaying(){
-  loadDiv.style.display='none';readyDiv.style.display='none';errDiv.style.display='none';
+  hideLoader();readyDiv.style.display='none';errDiv.style.display='none';
   ctrlBar.style.display='flex';
 }
 
 async function doStart(deviceId=null){
   readyDiv.style.display='none';
-  loadDiv.innerHTML='<div class="spinner"></div><h2>Starting camera…</h2>';
-  loadDiv.style.display='flex';
+  loadDiv.removeAttribute('hidden');
+  loadDiv.style.cssText='position:absolute;inset:0;background:rgba(10,10,20,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px 10px 0 0;z-index:20;visibility:visible;opacity:1;pointer-events:auto;';
+  loadDiv.innerHTML='<div class="spinner"></div><h2 style="color:#FFD700;font-size:1.1rem;letter-spacing:.08em">Starting camera…</h2>';
   try{
     await startCamera(deviceId);
     // Enumerate devices now (post-permission) to get labels

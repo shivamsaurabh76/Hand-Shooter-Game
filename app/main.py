@@ -127,10 +127,11 @@ st.markdown("""
 # (required for getUserMedia / camera access in modern browsers).
 
 replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
+_v = "4"
 if replit_domain:
-    game_url = f"https://{replit_domain}/app/static/game.html"
+    game_url = f"https://{replit_domain}/app/static/game.html?v={_v}"
 else:
-    game_url = "http://localhost:5000/app/static/game.html"
+    game_url = f"http://localhost:5000/app/static/game.html?v={_v}"
 
 st.markdown(
     f"""
