@@ -1,7 +1,1 @@
-# ─────────────────────────────────────────────
-#  Hand Gun Shooting Game — Python Dependencies
-#  WebRTC removed — game runs entirely in the browser via MediaPipe JS
-# ─────────────────────────────────────────────
-
-# Streamlit
 streamlit>=1.35.0,<2.0.0
