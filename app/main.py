@@ -137,7 +137,7 @@ st.markdown(
     <iframe
       src="{game_url}"
       width="100%"
-      height="560"
+      height="600"
       allow="camera; microphone; autoplay"
       style="border:none; border-radius:14px; display:block;"
     ></iframe>
