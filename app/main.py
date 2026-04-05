@@ -5,7 +5,6 @@ Camera + AI hand-tracking run entirely in the user's browser via MediaPipe JS.
 No server-side WebRTC or camera processing required.
 """
 
-import os
 import streamlit as st
 
 # ── Page config ────────────────────────────────────────────────────────
@@ -121,38 +120,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Game iframe ────────────────────────────────────────────────────────
-# Build the URL to the static HTML game file.
-# Streamlit static files are served at /app/static/<filename>
-# Build the absolute HTTPS URL so the browser grants camera permission.
-# - In a deployed (autoscale) app, REPLIT_DEPLOYMENT=1 and REPLIT_DOMAINS
-#   contains the production hostname (e.g. hand-shooter-game.replit.app).
-# - In the workspace / dev preview, use REPLIT_DEV_DOMAIN.
-
-_v = "5"
-_is_deployed = os.environ.get("REPLIT_DEPLOYMENT", "") == "1"
-if _is_deployed:
-    _domains = os.environ.get("REPLIT_DOMAINS", "")
-    _domain   = _domains.split(",")[0].strip() if _domains else ""
-    game_url  = f"https://{_domain}/app/static/game.html?v={_v}" if _domain else None
-else:
-    _dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
-    game_url = f"https://{_dev}/app/static/game.html?v={_v}" if _dev else f"http://localhost:5000/app/static/game.html?v={_v}"
-
-if game_url:
-    st.markdown(
-        f"""
-        <iframe
-          src="{game_url}"
-          width="100%"
-          height="600"
-          allow="camera; microphone; autoplay"
-          style="border:none; border-radius:14px; display:block;"
-        ></iframe>
-        """,
-        unsafe_allow_html=True,
-    )
-else:
-    st.error("⚠️ Could not determine app domain. Please set REPLIT_DEV_DOMAIN or REPLIT_DOMAINS.")
+# The static file is served at /app/static/game.html on every platform:
+#   Streamlit Cloud, Replit dev, Replit production, localhost.
+# Using a relative URL means the browser automatically resolves it against
+# the current page origin (always HTTPS in production), so camera
+# permissions work without any platform-specific env-var detection.
+st.markdown(
+    """
+    <iframe
+      src="/app/static/game.html?v=6"
+      width="100%"
+      height="600"
+      allow="camera; microphone; autoplay"
+      style="border:none; border-radius:14px; display:block;"
+    ></iframe>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ── How to Play ────────────────────────────────────────────────────────
 with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=False):

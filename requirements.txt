@@ -1,26 +1,7 @@
 # ─────────────────────────────────────────────
 #  Hand Gun Shooting Game — Python Dependencies
-#  Pinned for reproducible production deploys
+#  WebRTC removed — game runs entirely in the browser via MediaPipe JS
 # ─────────────────────────────────────────────
 
-# Streamlit & WebRTC
+# Streamlit
 streamlit>=1.35.0,<2.0.0
-streamlit-webrtc>=0.47.6
-
-# Computer vision & AI
-mediapipe>=0.10.14
-opencv-python-headless>=4.9.0.80
-
-# Numerics
-numpy>=1.26.4,<2.0.0
-
-# Audio (optional — silent fallback if unavailable)
-# sounddevice>=0.4.6     # uncomment for local dev with speakers
-
-# WebRTC internals
-aiortc>=1.9.0
-aiohttp>=3.9.5
-av>=12.0.0
-
-# Async support
-asyncio-throttle>=1.0.2
