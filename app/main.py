@@ -123,28 +123,36 @@ st.markdown("""
 # ── Game iframe ────────────────────────────────────────────────────────
 # Build the URL to the static HTML game file.
 # Streamlit static files are served at /app/static/<filename>
-# We use the Replit dev domain so the iframe src is an absolute HTTPS URL
-# (required for getUserMedia / camera access in modern browsers).
+# Build the absolute HTTPS URL so the browser grants camera permission.
+# - In a deployed (autoscale) app, REPLIT_DEPLOYMENT=1 and REPLIT_DOMAINS
+#   contains the production hostname (e.g. hand-shooter-game.replit.app).
+# - In the workspace / dev preview, use REPLIT_DEV_DOMAIN.
 
-replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
-_v = "4"
-if replit_domain:
-    game_url = f"https://{replit_domain}/app/static/game.html?v={_v}"
+_v = "5"
+_is_deployed = os.environ.get("REPLIT_DEPLOYMENT", "") == "1"
+if _is_deployed:
+    _domains = os.environ.get("REPLIT_DOMAINS", "")
+    _domain   = _domains.split(",")[0].strip() if _domains else ""
+    game_url  = f"https://{_domain}/app/static/game.html?v={_v}" if _domain else None
 else:
-    game_url = f"http://localhost:5000/app/static/game.html?v={_v}"
+    _dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
+    game_url = f"https://{_dev}/app/static/game.html?v={_v}" if _dev else f"http://localhost:5000/app/static/game.html?v={_v}"
 
-st.markdown(
-    f"""
-    <iframe
-      src="{game_url}"
-      width="100%"
-      height="600"
-      allow="camera; microphone; autoplay"
-      style="border:none; border-radius:14px; display:block;"
-    ></iframe>
-    """,
-    unsafe_allow_html=True,
-)
+if game_url:
+    st.markdown(
+        f"""
+        <iframe
+          src="{game_url}"
+          width="100%"
+          height="600"
+          allow="camera; microphone; autoplay"
+          style="border:none; border-radius:14px; display:block;"
+        ></iframe>
+        """,
+        unsafe_allow_html=True,
+    )
+else:
+    st.error("⚠️ Could not determine app domain. Please set REPLIT_DEV_DOMAIN or REPLIT_DOMAINS.")
 
 # ── How to Play ────────────────────────────────────────────────────────
 with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=False):
