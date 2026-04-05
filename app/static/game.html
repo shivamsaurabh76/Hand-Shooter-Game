@@ -725,17 +725,25 @@ async function init(){
 
   try{
     // All assets are self-hosted — zero CDN / external network dependency
-    statusEl.textContent='Loading AI library…';
-    const bundleUrl = new URL('./vision_bundle.mjs', location.href).href;
+    // (.js extension used — .mjs may get wrong MIME type on some servers)
+    function setLoadMsg(txt){
+      const h2=loadDiv.querySelector('h2');
+      const p =loadDiv.querySelector('p');
+      if(h2)h2.textContent=txt;
+      if(p) p.textContent='Please wait — assets are loading from the app server…';
+      statusEl.textContent=txt;
+    }
+    setLoadMsg('Step 1/3 — Loading AI library…');
+    const bundleUrl = new URL('./vision_bundle.js', location.href).href;
     const mp = await import(bundleUrl);
     HandLandmarker  = mp.HandLandmarker;
     FilesetResolver = mp.FilesetResolver;
 
-    statusEl.textContent='Loading MediaPipe WASM…';
+    setLoadMsg('Step 2/3 — Loading WASM engine (~18 MB)…');
     const wasmPath = new URL('./wasm', location.href).href;
     const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
-    statusEl.textContent='Loading hand-tracking model…';
+    setLoadMsg('Step 3/3 — Loading hand-tracking model…');
     // Model is self-hosted in /app/static/
     const modelUrl = new URL('./hand_landmarker.task', location.href).href;
     handLandmarker = await HandLandmarker.createFromOptions(vision,{
