@@ -3,7 +3,6 @@ headless = true
 enableCORS = false
 enableXsrfProtection = false
 enableStaticServing = true
-port = 5000
 
 [theme]
 base = "dark"
