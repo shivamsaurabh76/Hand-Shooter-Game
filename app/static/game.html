@@ -738,9 +738,11 @@ async function init(){
     );
 
     statusEl.textContent='Loading hand-tracking model…';
+    // Model is self-hosted in /app/static/ — no external network dependency
+    const modelUrl = new URL('./hand_landmarker.task', location.href).href;
     handLandmarker = await HandLandmarker.createFromOptions(vision,{
       baseOptions:{
-        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task',
+        modelAssetPath: modelUrl,
         delegate:'CPU',
       },
       runningMode:'VIDEO', numHands:1,
