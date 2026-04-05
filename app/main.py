@@ -140,7 +140,7 @@ html, body, [data-testid="stAppViewContainer"] {
     st.markdown(
         f"""
 <div style="text-align:center; padding:28px 0 18px;">
-  <a href="{_game_url}" target="_top"
+  <a href="{_game_url}" target="_blank"
      style="display:inline-block; background:#FFD700; color:#000;
             font-family:'Orbitron',sans-serif; font-weight:900;
             font-size:clamp(1.1rem,3vw,1.4rem); letter-spacing:0.08em;
