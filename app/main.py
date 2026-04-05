@@ -121,7 +121,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
     # ── Resolve game URL ─────────────────────────────────────────────────
     # Priority: st.context.headers Host → REPLIT_DEV_DOMAIN → relative path
-    _game_url = "/app/static/game.html?v=12"
+    _game_url = "/app/static/game.html?v=13"
     try:
         _host = ""
         _headers = getattr(st.context, "headers", None)
@@ -129,11 +129,11 @@ html, body, [data-testid="stAppViewContainer"] {
             _host = _headers.get("Host", "") or _headers.get("host", "")
         if _host:
             _proto = "http" if _host.startswith("localhost") else "https"
-            _game_url = f"{_proto}://{_host}/app/static/game.html?v=12"
+            _game_url = f"{_proto}://{_host}/app/static/game.html?v=13"
         else:
             _dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
             if _dev:
-                _game_url = f"https://{_dev}/app/static/game.html?v=12"
+                _game_url = f"https://{_dev}/app/static/game.html?v=13"
     except Exception:
         pass
 
