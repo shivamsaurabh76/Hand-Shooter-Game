@@ -22,11 +22,15 @@ import urllib.request
 from enum import Enum, auto
 from typing import List, Optional, Tuple
 
-import cv2
-import mediapipe as mp
-import numpy as np
-from mediapipe.tasks import python as mp_tasks
-from mediapipe.tasks.python import vision as mp_vision
+try:
+    import cv2
+    import mediapipe as mp
+    import numpy as np
+    from mediapipe.tasks import python as mp_tasks
+    from mediapipe.tasks.python import vision as mp_vision
+    _DEPS_OK = True
+except ImportError:
+    _DEPS_OK = False
 
 
 # ══════════════════════════════════════════════════════════════════════

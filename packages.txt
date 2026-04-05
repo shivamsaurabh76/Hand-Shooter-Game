@@ -1,7 +1,2 @@
-libgl1
-libglx-mesa0
-libglib2.0-0t64
-libsm6
-libxext6
-libxrender1
-libgomp1
+# No system packages required.
+# All AI (MediaPipe) runs in the browser via JavaScript — no OpenCV or GL needed.

@@ -120,15 +120,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Game iframe ────────────────────────────────────────────────────────
-# The static file is served at /app/static/game.html on every platform:
-#   Streamlit Cloud, Replit dev, Replit production, localhost.
-# Using a relative URL means the browser automatically resolves it against
-# the current page origin (always HTTPS in production), so camera
-# permissions work without any platform-specific env-var detection.
+# Build an absolute HTTPS URL so the browser grants camera permission.
+# st.context.headers (Streamlit ≥1.37) gives us the Host the browser used,
+# which works on Streamlit Cloud, Replit, and localhost alike.
+try:
+    _host = st.context.headers.get("Host") or st.context.headers.get("host", "")
+except Exception:
+    _host = ""
+
+if _host:
+    _proto = "http" if _host.startswith("localhost") else "https"
+    _game_url = f"{_proto}://{_host}/app/static/game.html?v=7"
+else:
+    # Fallback: Replit env vars
+    import os as _os
+    _dev = _os.environ.get("REPLIT_DEV_DOMAIN", "")
+    _game_url = f"https://{_dev}/app/static/game.html?v=7" if _dev else "/app/static/game.html?v=7"
+
 st.markdown(
-    """
+    f"""
     <iframe
-      src="/app/static/game.html?v=6"
+      src="{_game_url}"
       width="100%"
       height="600"
       allow="camera; microphone; autoplay"
