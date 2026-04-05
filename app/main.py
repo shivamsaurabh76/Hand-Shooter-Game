@@ -1,27 +1,27 @@
 """
-Hand Gun Shooting Game — Streamlit Host
-========================================
+Hand Gun Shooting Game - Streamlit Host
 Camera + AI hand-tracking run entirely in the user's browser via MediaPipe JS.
 No server-side WebRTC or camera processing required.
 """
 
+import os
 import streamlit as st
 
-# ── Page config ────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="🎯 Hand Shooter — Children Edition",
+    page_title="Hand Shooter - Children Edition",
     page_icon="🎯",
     layout="centered",
     initial_sidebar_state="collapsed",
     menu_items={
         "Get Help": None,
         "Report a bug": None,
-        "About": "🎯 Hand Gun Shooting Game — AI + Computer Vision, Children Edition",
+        "About": "Hand Gun Shooting Game - AI + Computer Vision, Children Edition",
     },
 )
 
-# ── CSS ────────────────────────────────────────────────────────────────
-st.markdown("""
+try:
+    # ── CSS ─────────────────────────────────────────────────────────────
+    st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Nunito:wght@400;700;800&display=swap');
 :root {
@@ -109,89 +109,97 @@ html, body, [data-testid="stAppViewContainer"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Hero ───────────────────────────────────────────────────────────────
-st.markdown("""
+    # ── Hero ─────────────────────────────────────────────────────────────
+    st.markdown("""
 <div class="hero">
-  <h1>🎯 HAND SHOOTER</h1>
-  <p class="subtitle">AI · Computer Vision · Children Edition</p>
-  <span class="tagline">✋ Open hand to aim &nbsp;•&nbsp; ✊ Squeeze fist to shoot!</span>
+  <h1>&#127919; HAND SHOOTER</h1>
+  <p class="subtitle">AI &middot; Computer Vision &middot; Children Edition</p>
+  <span class="tagline">&#9995; Open hand to aim &nbsp;&bull;&nbsp; &#9994; Squeeze fist to shoot!</span>
 </div>
 <hr class="divider">
 """, unsafe_allow_html=True)
 
-# ── Game iframe ────────────────────────────────────────────────────────
-# Build an absolute HTTPS URL so the browser grants camera permission.
-# st.context.headers (Streamlit ≥1.37) gives us the Host the browser used,
-# which works on Streamlit Cloud, Replit, and localhost alike.
-try:
-    _host = st.context.headers.get("Host") or st.context.headers.get("host", "")
-except Exception:
-    _host = ""
+    # ── Resolve game URL ─────────────────────────────────────────────────
+    # Priority: st.context.headers Host → REPLIT_DEV_DOMAIN → relative path
+    _game_url = "/app/static/game.html?v=8"
+    try:
+        _host = ""
+        _headers = getattr(st.context, "headers", None)
+        if _headers is not None:
+            _host = _headers.get("Host", "") or _headers.get("host", "")
+        if _host:
+            _proto = "http" if _host.startswith("localhost") else "https"
+            _game_url = f"{_proto}://{_host}/app/static/game.html?v=8"
+        else:
+            _dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
+            if _dev:
+                _game_url = f"https://{_dev}/app/static/game.html?v=8"
+    except Exception:
+        pass
 
-if _host:
-    _proto = "http" if _host.startswith("localhost") else "https"
-    _game_url = f"{_proto}://{_host}/app/static/game.html?v=7"
-else:
-    # Fallback: Replit env vars
-    import os as _os
-    _dev = _os.environ.get("REPLIT_DEV_DOMAIN", "")
-    _game_url = f"https://{_dev}/app/static/game.html?v=7" if _dev else "/app/static/game.html?v=7"
+    # ── Game iframe ──────────────────────────────────────────────────────
+    st.markdown(
+        f"""
+        <iframe
+          src="{_game_url}"
+          width="100%"
+          height="600"
+          allow="camera; microphone; autoplay"
+          style="border:none; border-radius:14px; display:block;"
+        ></iframe>
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    f"""
-    <iframe
-      src="{_game_url}"
-      width="100%"
-      height="600"
-      allow="camera; microphone; autoplay"
-      style="border:none; border-radius:14px; display:block;"
-    ></iframe>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ── How to Play ────────────────────────────────────────────────────────
-with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=False):
-    st.markdown("""
+    # ── How to Play ──────────────────────────────────────────────────────
+    with st.expander("📖 How to Play — Easy Guide for Kids & Parents!", expanded=False):
+        st.markdown("""
 <div class="info-card">
-  <b>👋 The Gesture is SUPER SIMPLE:</b><br><br>
+  <b>&#128075; The Gesture is SUPER SIMPLE:</b><br><br>
   <div class="steps">
-    <div class="step"><span class="num">1</span> 🖐 Open your hand flat</div>
-    <div class="step"><span class="num">2</span> 🎯 Move hand to aim at a ball</div>
-    <div class="step"><span class="num">3</span> ✊ Squeeze your fist — <span class="green">💥 BOOM!</span></div>
+    <div class="step"><span class="num">1</span> Open your hand flat</div>
+    <div class="step"><span class="num">2</span> Move hand to aim at a ball</div>
+    <div class="step"><span class="num">3</span> Squeeze your fist &mdash; <span class="green">BOOM!</span></div>
   </div>
   <br>
-  <b>💡 Tips for best results:</b><br>
-  • Good lighting on your hand is key<br>
-  • Keep hand 30–60 cm from camera<br>
-  • On phone/tablet: use the <b>front camera</b> in landscape mode<br>
-  • Even a 3-year-old can open and close their hand!
+  <b>&#128161; Tips for best results:</b><br>
+  &bull; Good lighting on your hand is key<br>
+  &bull; Keep hand 30&ndash;60 cm from camera<br>
+  &bull; On phone/tablet: use the <b>front camera</b> in landscape mode<br>
+  &bull; Even a 3-year-old can open and close their hand!
 </div>
 <br>
 <div class="mode-grid">
-  <div class="mode-card"><span class="icon">🎮</span><span class="name">Classic</span>30s + 2s/hit<br>5 balls<br><span class="diff">⭐⭐</span></div>
-  <div class="mode-card"><span class="icon">⏱</span><span class="name">Time Attack</span>60s fixed<br>7 fast balls<br><span class="diff">⭐⭐⭐</span></div>
-  <div class="mode-card"><span class="icon">🎯</span><span class="name">Practice</span>No timer<br>3 big slow balls<br><span class="diff">⭐</span></div>
+  <div class="mode-card"><span class="icon">&#127918;</span><span class="name">Classic</span>30s + 2s/hit<br>5 balls<br><span class="diff">&#11088;&#11088;</span></div>
+  <div class="mode-card"><span class="icon">&#9201;</span><span class="name">Time Attack</span>60s fixed<br>7 fast balls<br><span class="diff">&#11088;&#11088;&#11088;</span></div>
+  <div class="mode-card"><span class="icon">&#127919;</span><span class="name">Practice</span>No timer<br>3 big slow balls<br><span class="diff">&#11088;</span></div>
 </div>
 <br>
 <div class="info-card">
-  <b>🏆 Scoring:</b><br>
-  • Smaller balls → more points (1–4 pts)<br>
-  • Hit multiple in a row → <span class="green"><b>Combo multiplier up to ×5!</b></span><br>
-  • Miss a shot → combo resets to zero
+  <b>&#127942; Scoring:</b><br>
+  &bull; Smaller balls &rarr; more points (1&ndash;4 pts)<br>
+  &bull; Hit multiple in a row &rarr; <span class="green"><b>Combo multiplier up to &times;5!</b></span><br>
+  &bull; Miss a shot &rarr; combo resets to zero
 </div>
 """, unsafe_allow_html=True)
 
-st.info(
-    "💡 **Best played** with good lighting. "
-    "Start with **🎯 Practice** mode! "
-    "On phone/tablet rotate to **landscape** for best experience. "
-    "🔊 Sound plays in your browser — make sure your **volume is on**!"
-)
+    st.info(
+        "Best played with good lighting. "
+        "Start with Practice mode! "
+        "On phone/tablet rotate to landscape for best experience. "
+        "Sound plays in your browser — make sure your volume is on!"
+    )
 
-st.markdown(
-    '<p style="text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.25);margin-top:8px;">'
-    "⚙️ AI via MediaPipe HandLandmarker JS · 🔊 Sound via Web Audio API · No data stored or transmitted"
-    "</p>",
-    unsafe_allow_html=True,
-)
+    st.markdown(
+        '<p style="text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.25);margin-top:8px;">'
+        "AI via MediaPipe HandLandmarker JS &middot; Sound via Web Audio API &middot; No data stored or transmitted"
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+except Exception as _err:
+    import traceback
+    st.error(
+        f"The app encountered a startup error — please report this:\n\n"
+        f"```\n{traceback.format_exc()}\n```"
+    )

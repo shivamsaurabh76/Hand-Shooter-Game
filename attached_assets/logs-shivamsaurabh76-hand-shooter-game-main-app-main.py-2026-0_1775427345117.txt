@@ -1,0 +1,131 @@
+
+[     UTC     ] Logs for hand-shooter-game.streamlit.app/
+────────────────────────────────────────────────────────────────────────────────────────
+[22:01:45] 🚀 Starting up repository: 'hand-shooter-game', branch: 'main', main module: 'app/main.py'
+[22:01:45] 🐙 Cloning repository...
+[22:01:46] 🐙 Cloning into '/mount/src/hand-shooter-game'...
+
+[22:01:46] 🐙 Cloned repository!
+[22:01:46] 🐙 Pulling code changes from Github...
+[22:01:47] 📦 Processing dependencies...
+[22:01:47] 📦 Apt dependencies were installed from /mount/src/hand-shooter-game/packages.txt using apt-get.
+Get:1 http://deb.debian.org/debian-security bullseye-security InRelease [27.2 kB]
+Hit:2 http://deb.debian.org/debian trixie InRelease
+Get:3 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:4 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:5 http://deb.debian.org/debian-security bullseye-security/main amd64 Packages [446 kB]
+Get:6 https://packages.microsoft.com/debian/11/prod bullseye InRelease [3650 B]
+Get:7 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [119 kB]
+Get:8 https://packages.microsoft.com/debian/11/prod bullseye/main all Packages [1426 B]
+Get:9 https://packages.microsoft.com/debian/11/prod bullseye/main amd64 Packages [211 kB]
+Get:10 https://packages.microsoft.com/debian/11/prod bullseye/main arm64 Packages [70.4 kB]
+Fetched 970 kB in 0s (2938 kB/s)
+Reading package lists...[2026-04-05 22:01:49.553129] 
+Reading package lists...[2026-04-05 22:01:51.189320] 
+Building dependency tree...[2026-04-05 22:01:51.829452] 
+Reading state information...[2026-04-05 22:01:51.829801] 
+E: Unable to locate package #
+E: Unable to locate package No
+E: Unable to locate package system
+E: Unable to locate package packages
+E: Unable to locate package required.
+E: Couldn't find any package by glob 'required.'
+E: Couldn't find any package by regex 'required.'
+E: Unable to locate package #
+E: Unable to locate package All
+E: Unable to locate package AI
+E: Unable to locate package (MediaPipe)
+E: [2026-04-05 22:01:52.521025] Unable to locate package runs
+E: Unable to locate package in
+E: Unable to locate package the
+E: Unable to locate package browser
+E: Unable to locate package via
+E: Unable to locate package JavaScript
+E: Unable to locate package —
+E: Unable to locate package no
+E: Unable to locate package OpenCV
+E: Unable to locate package or
+E: Unable to locate package GL
+E: Unable to locate package needed.
+E: Couldn't find any package by glob 'needed.'
+E: Couldn't find any package by regex 'needed.'
+[22:01:52] ❗️ installer returned a non-zero exit code
+[22:01:52] ❗️ Error during processing dependencies! Please fix the error and push an update, or try restarting the app.
+[22:11:30] 🐙 Pulling code changes from Github...
+[22:11:30] 📦 Processing dependencies...
+[22:11:30] 📦 Apt dependencies were installed from /mount/src/hand-shooter-game/packages.txt using apt-get.
+Hit:1 http://deb.debian.org/debian-security bullseye-security InRelease
+Hit:2 http://deb.debian.org/debian trixie InRelease
+Hit:3 http://deb.debian.org/debian trixie-updates InRelease
+Hit:4 http://deb.debian.org/debian-security trixie-security InRelease
+Hit:5 https://packages.microsoft.com/debian/11/prod bullseye InRelease
+Reading package lists...[2026-04-05 22:11:32.843507] 
+Reading package lists...[2026-04-05 22:11:34.279288] 
+Building dependency tree...[2026-04-05 22:11:34.863336] 
+Reading state information...[2026-04-05 22:11:34.864168] 
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+
+──────────────────────────────────────── uv ───────────────────────────────────────────
+
+Using uv pip install.
+Using Python 3.13.12 environment at /home/adminuser/venv
+Resolved [2026-04-05 22:11:37.458552] 35 packages[2026-04-05 22:11:37.459955]  [2026-04-05 22:11:37.461471] in 653ms[2026-04-05 22:11:37.462352] 
+Prepared 35 packages in 2.91s
+Installed 35 packages in 163ms
+ + altair==6.0.0
+ [2026-04-05 22:11:40.544170] + attrs==26.1.0
+ + blinker==1.9.0
+ + cachetools==7.0.5
+ + certifi==2026.2.25
+ + charset-normalizer==3.4.7
+ + click==8.3.2
+ + gitdb==4.0.12
+ + gitpython==3.1.46
+ + idna==3.11
+ + jinja2==3.1.6
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + markupsafe==3.0.3
+ + narwhals==2.18.1
+ + numpy==2.4.4
+ + packaging==26.0
+ + pandas==3.0.2
+ + pillow==12.2.0
+ + protobuf==7.34.1
+ + pyarrow==23.0.1
+ + pydeck==0.9.1
+ + python-dateutil==2.9.0.post0
+ + referencing==0.37.0
+ + requests==2.33.1
+ + rpds-py==0.30.0
+ + [2026-04-05 22:11:40.544984] six==1.17.0
+ + smmap==5.0.3
+ + streamlit==1.56.0
+ + tenacity==9.1.4
+ + toml==0.10.2
+ + tornado[2026-04-05 22:11:40.546571] ==6.5.5
+ + typing-extensions==4.15.0
+ + urllib3==2.6.3
+ + watchdog==6.0.0
+Checking if Streamlit is installed
+Found Streamlit version 1.56.0 in the environment
+Installing rich for an improved exception logging
+Using uv pip install.
+Using Python 3.13.12 environment at /home/adminuser/venv
+Resolved [2026-04-05 22:11:43.255085] 4 packages[2026-04-05 22:11:43.255809]  [2026-04-05 22:11:43.256202] in 216ms[2026-04-05 22:11:43.256670] 
+Prepared 4 packages in 263ms
+Installed 4 packages in 33ms
+ + markdown-it-py==[2026-04-05 22:11:43.557338] 4.0.0
+ + mdurl==0.1.2
+ + pygments==2.20.0
+ + rich==14.3.3
+
+────────────────────────────────────────────────────────────────────────────────────────
+
+[22:11:44] 🐍 Python dependencies were installed from /mount/src/hand-shooter-game/requirements.txt using uv.
+[22:11:44] 📦 Processed dependencies!
+
+
+
+[22:11:47] 🔄 Updated app!
+[22:11:47] ❗️ The service has encountered an error while checking the health of the Streamlit app: Get "http://localhost:8501/healthz": dial tcp 127.0.0.1:8501: connect: connection refused

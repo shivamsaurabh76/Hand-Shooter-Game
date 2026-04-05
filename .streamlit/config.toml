@@ -4,7 +4,6 @@ enableCORS = false
 enableXsrfProtection = false
 enableStaticServing = true
 port = 5000
-address = "0.0.0.0"
 
 [theme]
 base = "dark"

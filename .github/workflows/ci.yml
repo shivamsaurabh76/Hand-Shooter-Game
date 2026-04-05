@@ -45,14 +45,14 @@ jobs:
           import sys
           import types
 
+          # Build a complete stub of every streamlit attribute used in main.py
           st = types.ModuleType("streamlit")
 
+          class FakeHeaders(dict):
+              pass
+
           class FakeCtx:
-              headers = {}
-          st.context = FakeCtx()
-          st.set_page_config = lambda **kw: None
-          st.markdown = lambda *a, **kw: None
-          st.error = lambda *a, **kw: None
+              headers = FakeHeaders()
 
           class FakeExpander:
               def __enter__(self):
@@ -60,7 +60,27 @@ jobs:
               def __exit__(self, *a):
                   return False
 
-          st.expander = lambda *a, **kw: FakeExpander()
+          def noop(*a, **kw):
+              return None
+
+          def fake_expander(*a, **kw):
+              return FakeExpander()
+
+          st.context = FakeCtx()
+          st.set_page_config = noop
+          st.markdown = noop
+          st.error = noop
+          st.info = noop
+          st.warning = noop
+          st.success = noop
+          st.caption = noop
+          st.write = noop
+          st.expander = fake_expander
+          st.columns = lambda n, **kw: [types.SimpleNamespace(markdown=noop, write=noop)] * (n if isinstance(n, int) else len(n))
+          st.sidebar = types.SimpleNamespace(
+              markdown=noop, write=noop, info=noop, error=noop, warning=noop
+          )
+
           sys.modules["streamlit"] = st
 
           import importlib.util
@@ -68,6 +88,15 @@ jobs:
           mod = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(mod)
           print("OK: app/main.py imported without errors")
+          PYEOF
+
+      - name: Verify packages.txt is safe
+        run: |
+          python - <<'PYEOF'
+          from pathlib import Path
+          content = Path("packages.txt").read_text(encoding="utf-8").strip()
+          assert content == "", f"packages.txt must be empty, got: {content!r}"
+          print("OK: packages.txt is empty")
           PYEOF
 
       - name: Verify game HTML has required content
