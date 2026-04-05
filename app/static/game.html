@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hand Shooter</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#0a0a14; overflow:hidden;
+             font-family:'Nunito',Arial,sans-serif; color:#e8e8f0; }
+#wrap { position:relative; width:100%; max-width:700px; margin:0 auto; }
+canvas { display:block; width:100%; border-radius:10px; background:#111; }
+video  { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+
+/* ── Loading overlay ── */
+#loading {
+  position:absolute; inset:0; background:rgba(10,10,20,0.92);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border-radius:10px; z-index:20;
+}
+.spinner { width:52px; height:52px; border:5px solid #333;
+           border-top-color:#FFD700; border-radius:50%;
+           animation:spin 0.9s linear infinite; margin-bottom:16px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+#loading h2 { color:#FFD700; font-size:1.2rem; letter-spacing:0.08em; }
+#loading p  { color:#aaa; font-size:0.82rem; margin-top:6px; }
+
+/* ── Camera permission overlay ── */
+#camperm {
+  position:absolute; inset:0; background:rgba(10,10,20,0.95);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  border-radius:10px; z-index:19; text-align:center; padding:24px;
+}
+#camperm h2 { color:#FFD700; font-size:1.3rem; margin-bottom:10px; }
+#camperm p  { color:#ccc; font-size:0.88rem; margin-bottom:20px; line-height:1.6; }
+#camperm button {
+  background:#FFD700; color:#000; border:none; border-radius:8px;
+  padding:12px 32px; font-size:1rem; font-weight:800; cursor:pointer;
+  font-family:inherit; transition:all 0.15s;
+}
+#camperm button:hover { background:#ffe44d; transform:translateY(-1px); }
+
+/* ── Error overlay ── */
+#errmsg {
+  position:absolute; inset:0; background:rgba(10,10,20,0.95);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  border-radius:10px; z-index:21; text-align:center; padding:24px;
+}
+#errmsg h2 { color:#ff5555; font-size:1.2rem; margin-bottom:10px; }
+#errmsg p  { color:#ccc; font-size:0.85rem; line-height:1.6; }
+
+#status { text-align:center; color:#555; font-size:0.7rem; margin-top:4px;
+          min-height:1em; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="640" height="480"></canvas>
+  <video id="v" autoplay playsinline muted></video>
+  <div id="loading">
+    <div class="spinner"></div>
+    <h2>Loading AI Model…</h2>
+    <p>MediaPipe HandLandmarker — just a moment</p>
+  </div>
+  <div id="camperm">
+    <h2>📷 Camera Required</h2>
+    <p>This game uses your camera to track your hand.<br>
+       No video is stored or transmitted anywhere.</p>
+    <button id="camBtn">Enable Camera</button>
+  </div>
+  <div id="errmsg">
+    <h2>⚠️ Something went wrong</h2>
+    <p id="errtext"></p>
+  </div>
+</div>
+<div id="status">Initialising…</div>
+
+<script type="module">
+// ═══════════════════════════════════════════════════════════════════════
+//  IMPORTS
+// ═══════════════════════════════════════════════════════════════════════
+import { HandLandmarker, FilesetResolver }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════════════════════
+const canvas   = document.getElementById('c');
+const ctx      = canvas.getContext('2d');
+const video    = document.getElementById('v');
+const loadDiv  = document.getElementById('loading');
+const camDiv   = document.getElementById('camperm');
+const camBtn   = document.getElementById('camBtn');
+const errDiv   = document.getElementById('errmsg');
+const errTxt   = document.getElementById('errtext');
+const statusEl = document.getElementById('status');
+const W = 640, H = 480;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MODE CONFIGS  (mirrors Python MODE_CONFIGS)
+// ═══════════════════════════════════════════════════════════════════════
+const MODES = {
+  classic:     { label:'CLASSIC',     icon:'🎮', time:30, balls:5, bonus:2,
+                 spdMin:1.8, spdMax:4.5, szMin:28, szMax:50, hasTimer:true,
+                 desc:'30s · +2s/hit · 5 balls' },
+  time_attack: { label:'TIME ATTACK', icon:'⏱', time:60, balls:7, bonus:0,
+                 spdMin:2.5, spdMax:6.0, szMin:22, szMax:42, hasTimer:true,
+                 desc:'60s fixed · 7 fast balls' },
+  practice:    { label:'PRACTICE',    icon:'🎯', time:0,  balls:3, bonus:0,
+                 spdMin:1.2, spdMax:3.0, szMin:35, szMax:60, hasTimer:false,
+                 desc:'No timer · 3 big balls' },
+};
+const MODE_ORDER = ['classic','time_attack','practice'];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COLOURS  (CSS strings for canvas)
+// ═══════════════════════════════════════════════════════════════════════
+const COL = {
+  GOLD:     '#FFD700',
+  GREEN:    '#39FF14',
+  RED:      '#ff3333',
+  ORANGE:   '#FF8C00',
+  CYAN:     '#00FFFF',
+  WHITE:    '#FFFFFF',
+  GRAY:     '#888888',
+  DARK:     'rgba(22,22,32,0.85)',
+  DARKER:   'rgba(10,10,20,0.72)',
+  PANEL:    'rgba(22,22,32,0.82)',
+};
+
+// Ball palette (RGB arrays for particle colour jitter)
+const BALL_PALETTE = [
+  [80,80,255],[80,200,80],[255,80,80],
+  [80,220,255],[255,160,80],[200,80,255],
+  [0,220,220],[220,200,0],
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HAND CONNECTIONS  (21 landmarks)
+// ═══════════════════════════════════════════════════════════════════════
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [0,17],[13,17],[17,18],[18,19],[19,20],
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MATH UTILS
+// ═══════════════════════════════════════════════════════════════════════
+function angle3D(p1, p2, p3) {
+  const v1 = [p1.x-p2.x, p1.y-p2.y, (p1.z||0)-(p2.z||0)];
+  const v2 = [p3.x-p2.x, p3.y-p2.y, (p3.z||0)-(p2.z||0)];
+  const n1 = Math.hypot(...v1), n2 = Math.hypot(...v2);
+  if (n1 < 1e-8 || n2 < 1e-8) return 0;
+  const dot = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+  return Math.acos(Math.max(-1, Math.min(1, dot/(n1*n2)))) * 180 / Math.PI;
+}
+function lerp(a, b, t) { return a + (b-a)*t; }
+function dist(x1,y1,x2,y2) { return Math.hypot(x2-x1, y2-y1); }
+function rnd(a, b) { return a + Math.random()*(b-a); }
+function rndInt(a, b) { return Math.floor(a + Math.random()*(b-a+1)); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WEB AUDIO — child-friendly sounds  (same recipes as main.py)
+// ═══════════════════════════════════════════════════════════════════════
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+}
+function bellBuf(freq, durMs, amp=0.45) {
+  const sr=audioCtx.sampleRate, n=Math.round(sr*durMs/1000);
+  const buf=audioCtx.createBuffer(1,n,sr), d=buf.getChannelData(0);
+  const tau=durMs/1000;
+  for(let i=0;i<n;i++){
+    const t=i/sr, env=Math.exp(-5.0*t/tau);
+    d[i]=amp*env*(0.50*Math.sin(6.28318*freq*t)+
+                  0.25*Math.sin(6.28318*freq*2*t)+
+                  0.10*Math.sin(6.28318*freq*3*t));
+  }
+  return buf;
+}
+function sweepBuf(f0,f1,durMs,amp=0.50) {
+  const sr=audioCtx.sampleRate, n=Math.round(sr*durMs/1000);
+  const buf=audioCtx.createBuffer(1,n,sr), d=buf.getChannelData(0);
+  let ph=0;
+  for(let i=0;i<n;i++){
+    const t=i/n, env=0.5-0.5*Math.cos(Math.PI*t), f=f0+(f1-f0)*t;
+    ph+=6.28318*f/sr; d[i]=amp*env*Math.sin(ph);
+  }
+  return buf;
+}
+function playBuf(buf, when=0) {
+  const src=audioCtx.createBufferSource();
+  src.buffer=buf; src.connect(audioCtx.destination);
+  src.start(when||audioCtx.currentTime);
+}
+function playSeq(noteList, gapMs=8) {
+  let when=audioCtx.currentTime+0.005;
+  for(const [freq,durMs,amp=0.46] of noteList){
+    const src=audioCtx.createBufferSource();
+    src.buffer=bellBuf(freq,durMs,amp);
+    src.connect(audioCtx.destination); src.start(when);
+    when+=(durMs+gapMs)/1000;
+  }
+}
+const N={C5:523.25,D5:587.33,E5:659.25,G5:783.99,A5:880,
+          C6:1046.5,E6:1318.51,G6:1567.98,C7:2093};
+function playSound(combo) {
+  try {
+    ensureAudio();
+    if(combo>=5){
+      playSeq([[N.C5,40,.38],[N.E5,45,.41],[N.G5,50,.44],
+               [N.C6,55,.47],[N.E6,60,.50],[N.G6,65,.53],[N.C7,70,.56]],5);
+      setTimeout(()=>playBuf(bellBuf(N.C6,180,.30)),420);
+    } else if(combo===4){
+      playSeq([[N.C5,45,.40],[N.D5,45,.42],[N.E5,45,.44],
+               [N.G5,45,.46],[N.A5,45,.48],[N.C6,45,.50]],6);
+    } else if(combo===3){
+      playSeq([[N.C6,55,.50],[N.E6,55,.50],[N.G6,55,.50]],8);
+    } else if(combo===2){
+      playSeq([[N.C5,70],[N.E5,70],[N.G5,70]],10);
+    } else {
+      playBuf(sweepBuf(1400,280,100,.55));
+      playBuf(bellBuf(N.C6,60,.28));
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PARTICLE
+// ═══════════════════════════════════════════════════════════════════════
+class Particle {
+  constructor(x,y,vx,vy,life,r,g,b,radius,gravity=200) {
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy;
+    this.life=life; this.maxLife=life;
+    this.r=r; this.g=g; this.b=b;
+    this.radius=radius; this.gravity=gravity;
+  }
+  update(dt) {
+    this.x+=this.vx*dt; this.y+=this.vy*dt;
+    this.vy+=this.gravity*dt; this.life-=dt;
+    return this.life>0;
+  }
+  draw(ctx) {
+    const a=Math.max(0,this.life/this.maxLife);
+    const r=Math.max(1,this.radius*a);
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${Math.round(this.r*a)},${Math.round(this.g*a)},${Math.round(this.b*a)},${a})`;
+    ctx.fill();
+  }
+}
+class ParticleSystem {
+  constructor() { this.pool=[]; }
+  burst(x,y,n,[r,g,b],spdMin=60,spdMax=280) {
+    for(let i=0;i<n;i++){
+      const a=rnd(0,Math.PI*2), s=rnd(spdMin,spdMax), l=rnd(0.35,0.90), rad=rnd(2,7);
+      const dr=clamp(r+rndInt(-35,35),0,255), dg=clamp(g+rndInt(-35,35),0,255), db=clamp(b+rndInt(-35,35),0,255);
+      this.pool.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,l,dr,dg,db,rad));
+    }
+  }
+  ring(x,y,n,[r,g,b]) {
+    for(let i=0;i<n;i++){
+      const a=(Math.PI*2*i)/n;
+      this.pool.push(new Particle(x,y,Math.cos(a)*220,Math.sin(a)*220,.40,r,g,b,3,0));
+    }
+  }
+  confettiBurst(x,y,n=45) {
+    const pal=[[255,50,50],[50,255,50],[50,50,255],[255,255,50],
+               [50,255,255],[255,165,50],[200,80,255],[255,215,0]];
+    for(let i=0;i<n;i++){
+      const a=rnd(0,Math.PI*2), s=rnd(80,340), l=rnd(0.55,1.30), rad=rnd(4,11);
+      const [r,g,b]=pal[rndInt(0,pal.length-1)];
+      this.pool.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,l,r,g,b,rad,180));
+    }
+  }
+  spark(x,y) {
+    for(let i=0;i<8;i++){
+      const a=rnd(0,Math.PI*2), s=rnd(30,100);
+      this.pool.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,.30,255,50,50,2.5,150));
+    }
+  }
+  update(dt) { this.pool=this.pool.filter(p=>p.update(dt)); }
+  draw(ctx)  { this.pool.forEach(p=>p.draw(ctx)); }
+  clear()    { this.pool=[]; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SCORE POPUP
+// ═══════════════════════════════════════════════════════════════════════
+class ScorePopup {
+  constructor(x,y,text,color,life=1.2) {
+    this.x=x; this.y=y; this.text=text; this.color=color;
+    this.life=life; this.maxLife=life;
+  }
+  update(dt) { this.y-=60*dt; this.life-=dt; return this.life>0; }
+  draw(ctx) {
+    const a=Math.max(0,this.life/this.maxLife);
+    ctx.globalAlpha=a;
+    ctx.font=`bold ${Math.round(14+8*a)}px Nunito,Arial`;
+    ctx.fillStyle=this.color;
+    ctx.textAlign='center';
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.globalAlpha=1;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TARGET BALL
+// ═══════════════════════════════════════════════════════════════════════
+class TargetBall {
+  constructor(cfg) {
+    this.W=W; this.H=H;
+    this.baseR=rndInt(cfg.szMin, cfg.szMax); this.r=this.baseR;
+    const m=this.baseR+14;
+    this.x=rnd(m, W-m); this.y=rnd(m, H-m);
+    const spd=rnd(cfg.spdMin, cfg.spdMax), ang=rnd(0,Math.PI*2);
+    this.vx=Math.cos(ang)*spd; this.vy=Math.sin(ang)*spd;
+    const pal=BALL_PALETTE[rndInt(0,BALL_PALETTE.length-1)];
+    this.color=pal;
+    this.hiColor=pal.map(c=>Math.min(255,c+60));
+    this.phase=rnd(0,Math.PI*2);
+  }
+  update(elapsed) {
+    this.x+=this.vx; this.y+=this.vy;
+    const r=this.baseR;
+    if(this.x-r<=0)  { this.vx=Math.abs(this.vx); this.x=r; }
+    if(this.x+r>=W)  { this.vx=-Math.abs(this.vx); this.x=W-r; }
+    if(this.y-r<=0)  { this.vy=Math.abs(this.vy); this.y=r; }
+    if(this.y+r>=H)  { this.vy=-Math.abs(this.vy); this.y=H-r; }
+    this.r=this.baseR+3*Math.sin(elapsed*3.5+this.phase);
+  }
+  get points() { return Math.max(1, 4 - Math.floor((this.baseR-22)/10)); }
+  hitTest(px,py) { return dist(px,py,this.x,this.y) < this.r*1.20; }
+  draw(ctx) {
+    const cx=this.x, cy=this.y, r=Math.max(5,this.r);
+    const [cr,cg,cb]=this.color;
+    const [hr,hg,hb]=this.hiColor;
+    // Shadow
+    ctx.beginPath(); ctx.arc(cx+4,cy+4,r,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fill();
+    // Outer ring
+    ctx.beginPath(); ctx.arc(cx,cy,r+6,0,Math.PI*2);
+    ctx.strokeStyle=`rgb(${cr},${cg},${cb})`; ctx.lineWidth=2; ctx.stroke();
+    // Body
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=`rgb(${cr},${cg},${cb})`; ctx.fill();
+    // Highlight
+    const off=Math.max(1,r/4);
+    ctx.beginPath(); ctx.arc(cx-off,cy-off,Math.max(2,r/3),0,Math.PI*2);
+    ctx.fillStyle=`rgb(${hr},${hg},${hb})`; ctx.fill();
+    // White rim
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+    // Face (eyes + smile) if big enough
+    if(r>=18){
+      const eo=Math.max(2,r/5), er=Math.max(2,r/8);
+      ctx.fillStyle='#000';
+      ctx.beginPath(); ctx.arc(cx-eo,cy-eo/2,er,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx+eo,cy-eo/2,er,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx,cy+r/8,Math.max(2,r/3),0,Math.PI);
+      ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.stroke();
+    }
+    // Point badge
+    const pts=this.points, br=Math.max(10,r/3), bx=cx+r-4, by=cy-r+4;
+    ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2);
+    ctx.fillStyle='#FFD700'; ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#000'; ctx.font=`bold ${Math.round(br*0.9)}px Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(pts, bx, by);
+    ctx.textBaseline='alphabetic';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════════════════
+let gameState   = 'loading';   // loading | menu | playing | gameover
+let modeCfg     = MODES.classic;
+let modeKey     = 'classic';
+let score       = 0;
+let combo       = 0;
+let bestCombo   = 0;
+let shotsFired  = 0;
+let shotsHit    = 0;
+let timeLeft    = 30;
+let elapsed     = 0;
+let bonusTime   = 0;
+let startTime   = 0;
+let gameOverAt  = 0;
+let balls       = [];
+let particles   = new ParticleSystem();
+let popups      = [];
+let menuElapsed = 0;
+
+// Hand tracking state
+let handX = W/2, handY = H/2;
+let smoothX = W/2, smoothY = H/2;
+let isShooting   = false;
+let openFingers  = 5;
+let shotCooldown = 0;
+const SHOT_COOLDOWN_FRAMES = 12;
+const FOLD_MAX = 110;  // degrees — same as Python
+
+// MediaPipe
+let handLandmarker = null;
+let lastVideoTime  = -1;
+let rafId          = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GESTURE DETECTION  (mirrors Python GestureDetector)
+// ═══════════════════════════════════════════════════════════════════════
+function detectGesture(lms) {
+  // lms: array of {x,y,z} normalised landmarks (0..1)
+  // Count folded fingers (same as Python: angle at PIP < FOLD_MAX → folded)
+  const fingerJoints = [
+    [5,6,7],  // index:  MCP,PIP,DIP
+    [9,10,11],// middle
+    [13,14,15],// ring
+    [17,18,19],// pinky
+  ];
+  let folded = 0;
+  for(const [mcp,pip,dip] of fingerJoints){
+    if(angle3D(lms[mcp],lms[pip],lms[dip]) < FOLD_MAX) folded++;
+  }
+  // Thumb: folded if tip.y > mcp.y (landmark 4 vs 2)
+  if(lms[4].y > lms[2].y) folded++;
+
+  openFingers = 5 - folded;
+  const shooting = folded >= 3; // 3+ fingers folded = fist
+
+  // Index tip position (mirrored on X since we flip video)
+  const tip = lms[8];
+  const palm = lms[0]; // wrist
+  // Blend index tip + palm centre for smooth cursor
+  const imcp = lms[5], mmcp = lms[9], rmcp = lms[13], pmcp = lms[17];
+  const palmCx = (palm.x+imcp.x+mmcp.x+rmcp.x+pmcp.x)/5;
+  const palmCy = (palm.y+imcp.y+mmcp.y+rmcp.y+pmcp.y)/5;
+  const tx = (1 - (0.7*tip.x + 0.3*palmCx)) * W;  // mirror
+  const ty = (0.7*tip.y + 0.3*palmCy) * H;
+
+  return { shooting, tx, ty };
+}
+
+function drawSkeleton(lms, shooting) {
+  const pts = lms.map(l => [(1-l.x)*W, l.y*H]);
+  ctx.strokeStyle = shooting ? '#ff3333' : '#00dd00';
+  ctx.lineWidth = 2;
+  for(const [a,b] of CONNECTIONS){
+    ctx.beginPath(); ctx.moveTo(pts[a][0],pts[a][1]);
+    ctx.lineTo(pts[b][0],pts[b][1]); ctx.stroke();
+  }
+  for(const [px,py] of pts){
+    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2);
+    ctx.fillStyle='#dd5000'; ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1; ctx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HUD HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function drawPanel(x,y,w,h,col='rgba(22,22,32,0.82)',border='#555',bw=1) {
+  ctx.fillStyle=col; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=border; ctx.lineWidth=bw; ctx.strokeRect(x,y,w,h);
+}
+function ctext(text,cx,y,size,color,bold=true) {
+  ctx.font=`${bold?'bold ':''}${size}px Nunito,Arial`;
+  ctx.fillStyle=color; ctx.textAlign='center';
+  ctx.fillText(text,cx,y); ctx.textAlign='left';
+}
+function drawCrosshair(x,y,shooting) {
+  const size=26;
+  let col='#39FF14', lw=2;
+  if(shooting){ col='#ff3333'; lw=3;
+    ctx.beginPath(); ctx.arc(x,y,size+14,0,Math.PI*2);
+    ctx.strokeStyle='#FF8C00'; ctx.lineWidth=2; ctx.stroke();
+  } else if(openFingers<=1){ col='#FF8C00'; lw=3; }
+  ctx.strokeStyle=col; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(x-size,y); ctx.lineTo(x+size,y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,y-size); ctx.lineTo(x,y+size); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,size-6,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+}
+function drawScorePanel() {
+  const pw=Math.min(220,W/3);
+  drawPanel(12,8,pw,72,'rgba(22,22,32,0.82)','#FFD700',2);
+  ctx.font='bold 20px Nunito,Arial'; ctx.fillStyle='#FFD700';
+  ctx.fillText(`SCORE: ${score}`,24,40);
+  if(combo>1){
+    ctx.font='bold 12px Nunito,Arial'; ctx.fillStyle='#39FF14';
+    ctx.fillText(`x${combo}  COMBO!`,24,64);
+  }
+}
+function drawTimerPanel(t) {
+  const pw=Math.min(220,W/3), x=W-pw-12;
+  const col = t>10 ? '#39FF14' : t>5 ? '#FFD700' : '#ff3333';
+  drawPanel(x,8,pw,48,'rgba(22,22,32,0.82)','#FFD700',2);
+  ctx.font='bold 20px Nunito,Arial'; ctx.fillStyle=col;
+  ctx.fillText(`TIME  ${t.toFixed(1)}s`,x+14,40);
+}
+function drawElapsedPanel(t) {
+  const pw=Math.min(220,W/3), x=W-pw-12;
+  drawPanel(x,8,pw,48,'rgba(22,22,32,0.82)','#00FFFF',2);
+  ctx.font='bold 20px Nunito,Arial'; ctx.fillStyle='#00FFFF';
+  ctx.fillText(`TIME  ${t.toFixed(1)}s`,x+14,40);
+}
+function drawGestureBar() {
+  const barH=40;
+  drawPanel(0,H-barH,W,barH,'rgba(40,40,40,0.85)');
+  const sqW=18, sqH=22, total=5*sqW+4*4;
+  const sx0=(W-total)/2, sy0=H-barH+8;
+  for(let i=0;i<5;i++){
+    const col = i<openFingers ? '#39FF14' : '#444';
+    ctx.fillStyle=col;
+    ctx.fillRect(sx0+i*(sqW+4), sy0, sqW, sqH);
+    ctx.strokeStyle='white'; ctx.lineWidth=1;
+    ctx.strokeRect(sx0+i*(sqW+4), sy0, sqW, sqH);
+  }
+  ctext('OPEN hand to aim   ✊ SQUEEZE fist to shoot!',W/2,H-5,10,'#ccc',false);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GAME LOOP STATES
+// ═══════════════════════════════════════════════════════════════════════
+function drawMenu(t) {
+  // Dark overlay on video
+  ctx.fillStyle='rgba(0,0,0,0.62)'; ctx.fillRect(0,0,W,H);
+  // Scan lines
+  ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=1;
+  for(let y=0;y<H;y+=4){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  // Gold top bar
+  ctx.fillStyle='#FFD700'; ctx.fillRect(0,0,W,5);
+  // Title
+  const pulse=0.07*Math.sin(menuElapsed*2.4);
+  const tsc=0.9+pulse;
+  ctx.font=`bold ${Math.round(36*tsc)}px Nunito,Arial`;
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  ctx.fillText('HAND GUN SHOOTING GAME',W/2+2,H*0.12+2);
+  ctx.fillStyle='#FFD700';
+  ctx.fillText('HAND GUN SHOOTING GAME',W/2,H*0.12);
+  ctx.font='14px Nunito,Arial'; ctx.fillStyle='#aaa';
+  ctx.fillText('AI  +  Computer Vision   |   Children Edition',W/2,H*0.175);
+  // Divider line with bouncing dot
+  const dw=Math.min(320,W/2);
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo((W-dw)/2,H*0.23); ctx.lineTo((W+dw)/2,H*0.23); ctx.stroke();
+  const dotX=(W-dw)/2+dw*((Math.sin(menuElapsed*2)+1)/2);
+  ctx.fillStyle='#FFD700'; ctx.beginPath(); ctx.arc(dotX,H*0.23,4,0,Math.PI*2); ctx.fill();
+  // "Select mode"
+  ctx.font='bold 15px Nunito,Arial'; ctx.fillStyle='white';
+  ctx.fillText('SELECT  GAME  MODE',W/2,H*0.305);
+  // Mode buttons
+  const iw=Math.min(440,W-60), ih=66, gap=14;
+  const ox=(W-iw)/2, oy=H*0.37;
+  ctx.textAlign='left';
+  MODE_ORDER.forEach((key,i)=>{
+    const cfg=MODES[key];
+    const x=ox, y=oy+i*(ih+gap), w2=iw, h2=ih;
+    const hovered=smoothX>=x && smoothX<=x+w2 && smoothY>=y && smoothY<=y+h2;
+    drawPanel(x,y,w2,h2,hovered?'rgba(40,70,40,0.85)':'rgba(22,22,32,0.85)',
+              hovered?'#39FF14':'#666',2);
+    // Coloured dot
+    const dotCols={classic:'#39FF14',time_attack:'#FF8C00',practice:'#00FFFF'};
+    ctx.fillStyle=dotCols[key]; ctx.beginPath(); ctx.arc(x+26,y+h2/2,11,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='white'; ctx.lineWidth=1; ctx.stroke();
+    // Label
+    ctx.font='bold 18px Nunito,Arial'; ctx.fillStyle='white';
+    ctx.fillText(`${cfg.icon} ${cfg.label}`,x+50,y+30);
+    ctx.font='11px Nunito,Arial'; ctx.fillStyle='#aaa';
+    ctx.fillText(cfg.desc,x+50,y+52);
+    // Hold progress bar
+    const pct=menuHoverTimes[i]/1.2;
+    if(pct>0){
+      ctx.fillStyle='#39FF14'; ctx.fillRect(x+5,y+h2-7,Math.round((w2-10)*pct),4);
+    }
+  });
+  // Bottom bar
+  ctx.fillStyle='rgba(40,40,40,0.85)'; ctx.fillRect(0,H-36,W,36);
+  ctx.font='11px Nunito,Arial'; ctx.fillStyle='#888'; ctx.textAlign='center';
+  ctx.fillText('Hold hand over mode to select  |  Point & SQUEEZE',W/2,H-12);
+  // Crosshair
+  drawCrosshair(smoothX,smoothY,false);
+}
+
+let menuHoverTimes=[0,0,0];
+function updateMenu(dt) {
+  const iw=Math.min(440,W-60), ih=66, gap=14;
+  const ox=(W-iw)/2, oy=H*0.37;
+  for(let i=0;i<MODE_ORDER.length;i++){
+    const y=oy+i*(ih+gap);
+    const hovered=smoothX>=ox && smoothX<=ox+iw && smoothY>=y && smoothY<=y+ih;
+    if(hovered){
+      menuHoverTimes[i]+=dt;
+      if(menuHoverTimes[i]>=1.2 || isShooting){
+        startGame(MODE_ORDER[i]); return;
+      }
+    } else {
+      menuHoverTimes[i]=Math.max(0,menuHoverTimes[i]-dt*2);
+    }
+  }
+}
+
+function drawPlaying() {
+  drawScorePanel();
+  if(modeCfg.hasTimer) drawTimerPanel(timeLeft);
+  else drawElapsedPanel(elapsed);
+  // Mode label
+  ctx.font='13px Nunito,Arial'; ctx.fillStyle='#aaa'; ctx.textAlign='center';
+  ctx.fillText(modeCfg.label, W/2, 20); ctx.textAlign='left';
+  drawGestureBar();
+  balls.forEach(b=>b.draw(ctx));
+  drawCrosshair(smoothX,smoothY,isShooting);
+}
+
+function drawGameOver() {
+  // Dim balls
+  balls.forEach(b=>b.draw(ctx));
+  // Dark overlay
+  ctx.fillStyle='rgba(0,0,0,0.72)'; ctx.fillRect(0,0,W,H);
+  // Panel
+  const pw=Math.min(500,W-40), ph=310, px=(W-pw)/2, py=(H-ph)/2;
+  drawPanel(px,py,pw,ph,'rgba(40,40,40,0.92)','#FFD700',2);
+  const acc=shotsHit/Math.max(1,shotsFired)*100;
+  ctext('GAME  OVER',W/2,py+70,48,'#ff3333');
+  ctext(`Score:  ${score}`,W/2,py+122,28,'#FFD700');
+  ctext(`Accuracy ${acc.toFixed(0)}%   |   Best Combo x${bestCombo}`,W/2,py+162,13,'#ccc',false);
+  ctext('SQUEEZE to play again',W/2,py+215,14,'#ccc',false);
+  ctext('Or hover over Back to Menu below',W/2,py+240,12,'#888',false);
+  // Back to menu button
+  const bw=200, bh=36, bx=(W-bw)/2, bby=py+260;
+  const hovMenu=smoothX>=bx && smoothX<=bx+bw && smoothY>=bby && smoothY<=bby+bh;
+  drawPanel(bx,bby,bw,bh,hovMenu?'rgba(40,70,40,0.9)':'rgba(30,30,30,0.9)',
+            hovMenu?'#39FF14':'#555',1);
+  ctext('↩ Back to Menu',W/2,bby+24,13,hovMenu?'#39FF14':'#ccc');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  START GAME
+// ═══════════════════════════════════════════════════════════════════════
+function startGame(key) {
+  modeKey=key; modeCfg=MODES[key];
+  score=0; combo=0; bestCombo=0; shotsFired=0; shotsHit=0;
+  bonusTime=0; startTime=performance.now()/1000;
+  isShooting=false; shotCooldown=SHOT_COOLDOWN_FRAMES;
+  popups=[]; particles.clear();
+  balls=Array.from({length:modeCfg.balls},()=>new TargetBall(modeCfg));
+  gameState='playing';
+  menuHoverTimes=[0,0,0];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MAIN RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════════
+let prevTime=0;
+function loop(ts) {
+  const now=ts/1000;
+  const dt=Math.min(now-prevTime, 0.08);
+  prevTime=now;
+
+  // ── Process MediaPipe ──────────────────────────────────────────────
+  let lms=null;
+  if(handLandmarker && video.readyState>=2 && video.currentTime!==lastVideoTime){
+    lastVideoTime=video.currentTime;
+    try {
+      const res=handLandmarker.detectForVideo(video, ts);
+      if(res.landmarks && res.landmarks.length>0) lms=res.landmarks[0];
+    } catch(e){}
+  }
+
+  // ── Update hand state ──────────────────────────────────────────────
+  if(lms){
+    const g=detectGesture(lms);
+    handX=g.tx; handY=g.ty;
+    const shooting=g.shooting;
+    if(shooting && shotCooldown<=0){ isShooting=true; shotCooldown=SHOT_COOLDOWN_FRAMES; }
+    else isShooting=false;
+    if(shotCooldown>0) shotCooldown--;
+  } else {
+    isShooting=false; openFingers=5;
+  }
+  smoothX=lerp(smoothX,handX,0.30);
+  smoothY=lerp(smoothY,handY,0.30);
+
+  // ── Draw video (mirrored) ──────────────────────────────────────────
+  ctx.save();
+  ctx.scale(-1,1); ctx.translate(-W,0);
+  if(video.readyState>=2) ctx.drawImage(video,0,0,W,H);
+  else { ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H); }
+  ctx.restore();
+
+  // ── Draw hand skeleton ─────────────────────────────────────────────
+  if(lms) drawSkeleton(lms, isShooting);
+
+  // ── State machine ──────────────────────────────────────────────────
+  if(gameState==='menu'){
+    menuElapsed+=dt;
+    updateMenu(dt);
+    drawMenu(now);
+
+  } else if(gameState==='playing'){
+    elapsed=now-startTime;
+    if(modeCfg.hasTimer){
+      timeLeft=Math.max(0, modeCfg.time - elapsed + bonusTime);
+      if(timeLeft<=0){ gameState='gameover'; gameOverAt=now; }
+    } else {
+      timeLeft=elapsed;
+    }
+    // Update balls
+    balls.forEach(b=>b.update(elapsed));
+    // Shooting logic
+    if(isShooting){
+      shotsFired++;
+      let hit=false;
+      for(let i=0;i<balls.length;i++){
+        if(balls[i].hitTest(smoothX,smoothY)){
+          hit=true;
+          const pts=balls[i].points;
+          combo++; bestCombo=Math.max(bestCombo,combo);
+          const mult=Math.min(combo,5), earned=pts*mult;
+          score+=earned; shotsHit++;
+          bonusTime+=modeCfg.bonus;
+          playSound(combo);
+          particles.confettiBurst(balls[i].x,balls[i].y,50);
+          particles.ring(balls[i].x,balls[i].y,16,[255,255,255]);
+          popups.push(new ScorePopup(balls[i].x,balls[i].y-25,`+${earned}`,'#FFD700'));
+          if(mult>1) popups.push(new ScorePopup(balls[i].x,balls[i].y-52,`x${mult} COMBO!`,'#39FF14'));
+          balls[i]=new TargetBall(modeCfg);
+          break;
+        }
+      }
+      if(!hit){ combo=0; particles.spark(smoothX,smoothY); }
+    }
+    particles.update(dt);
+    popups=popups.filter(p=>p.update(dt));
+    drawPlaying();
+    particles.draw(ctx);
+    popups.forEach(p=>p.draw(ctx));
+
+  } else if(gameState==='gameover'){
+    particles.update(dt);
+    drawGameOver();
+    particles.draw(ctx);
+    // Back to menu hover check
+    const ph=310, py=(H-ph)/2;
+    const bw=200, bh=36, bx=(W-bw)/2, bby=py+260;
+    const hovMenu=smoothX>=bx && smoothX<=bx+bw && smoothY>=bby && smoothY<=bby+bh;
+    if((isShooting && now-gameOverAt>1.5) || (hovMenu && isShooting)){
+      gameState='menu'; menuElapsed=0; menuHoverTimes=[0,0,0];
+    }
+  }
+
+  rafId=requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+function showError(msg) {
+  loadDiv.style.display='none'; camDiv.style.display='none';
+  errDiv.style.display='flex'; errTxt.textContent=msg;
+  statusEl.textContent='Error — see above';
+}
+
+async function startCamera() {
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{ width:640, height:480, facingMode:'user' }, audio:false
+    });
+    video.srcObject=stream;
+    await new Promise((res,rej)=>{
+      video.onloadeddata=res;
+      video.onerror=rej;
+    });
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+async function loadMediaPipe() {
+  statusEl.textContent='Loading MediaPipe WASM…';
+  const vision=await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+  );
+  statusEl.textContent='Creating HandLandmarker…';
+  handLandmarker=await HandLandmarker.createFromOptions(vision,{
+    baseOptions:{
+      modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task',
+      delegate:'CPU',
+    },
+    runningMode:'VIDEO',
+    numHands:1,
+    minHandDetectionConfidence:0.62,
+    minHandPresenceConfidence:0.62,
+    minTrackingConfidence:0.58,
+  });
+}
+
+async function init() {
+  try {
+    await loadMediaPipe();
+    statusEl.textContent='Requesting camera…';
+    // Try camera
+    const ok=await startCamera();
+    if(!ok){
+      loadDiv.style.display='none';
+      camDiv.style.display='flex';
+      return; // Wait for button
+    }
+    beginGame();
+  } catch(e) {
+    showError(`Failed to initialise: ${e.message||e}`);
+  }
+}
+
+function beginGame() {
+  loadDiv.style.display='none';
+  camDiv.style.display='none';
+  statusEl.textContent='Playing! Open hand to aim, squeeze to shoot.';
+  gameState='menu'; menuElapsed=0;
+  prevTime=performance.now()/1000;
+  rafId=requestAnimationFrame(loop);
+}
+
+// Camera permission button
+camBtn.addEventListener('click', async ()=>{
+  camDiv.innerHTML='<div class="spinner" style="margin:0 auto"></div>';
+  const ok=await startCamera();
+  if(ok){ beginGame(); }
+  else { showError('Camera access denied or not available. Please allow camera access and reload.'); }
+});
+
+// Kick off
+init();
+</script>
+</body>
+</html>
