@@ -147,10 +147,10 @@ video  { position:absolute; opacity:0; pointer-events:none; width:1px; height:1p
 
 <script type="module">
 // ═══════════════════════════════════════════════════════════════════════
-//  IMPORTS
+//  DYNAMIC IMPORT — kept inside init() so failures are catchable
+//  (static top-level imports fail silently when CDN is blocked)
 // ═══════════════════════════════════════════════════════════════════════
-import { HandLandmarker, FilesetResolver }
-  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+let HandLandmarker = null, FilesetResolver = null;
 
 // ═══════════════════════════════════════════════════════════════════════
 //  DOM REFS
@@ -711,23 +711,55 @@ devConfirm.addEventListener('click',()=>{
 
 // ═══════════════════════════════════════════════════════════════════════
 //  INIT — load MediaPipe only (camera starts on user click)
+//  Uses dynamic import so any failure is catchable and shown to the user.
 // ═══════════════════════════════════════════════════════════════════════
 async function init(){
+  // Hard timeout — if loading hangs for 90s, show a helpful error
+  const timeoutId = setTimeout(()=>{
+    showError(
+      'Loading timed out (90s). This can happen if your browser or network ' +
+      'blocks the AI model download. Try: refreshing the page, using Chrome/Edge, ' +
+      'or disabling any VPN/ad-blocker.'
+    );
+  }, 90000);
+
   try{
+    // Dynamic import so CDN failures are caught by this try/catch
+    statusEl.textContent='Loading AI library…';
+    const mp = await import(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+    );
+    HandLandmarker  = mp.HandLandmarker;
+    FilesetResolver = mp.FilesetResolver;
+
     statusEl.textContent='Loading MediaPipe WASM…';
-    const vision=await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-    statusEl.textContent='Creating HandLandmarker…';
-    handLandmarker=await HandLandmarker.createFromOptions(vision,{
+    const vision = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+
+    statusEl.textContent='Loading hand-tracking model…';
+    handLandmarker = await HandLandmarker.createFromOptions(vision,{
       baseOptions:{
         modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task',
         delegate:'CPU',
       },
-      runningMode:'VIDEO',numHands:1,
-      minHandDetectionConfidence:0.62,minHandPresenceConfidence:0.62,minTrackingConfidence:0.58,
+      runningMode:'VIDEO', numHands:1,
+      minHandDetectionConfidence:0.62,
+      minHandPresenceConfidence:0.62,
+      minTrackingConfidence:0.58,
     });
+
+    clearTimeout(timeoutId);
     showReady();
-  }catch(e){showError(`Failed to load AI model: ${e.message||e}`);}
+  }catch(e){
+    clearTimeout(timeoutId);
+    const msg = e && e.message ? e.message : String(e);
+    showError(
+      'Failed to load AI model: ' + msg + '. ' +
+      'Please refresh the page and try again. ' +
+      'Make sure you are using a modern browser (Chrome or Edge recommended).'
+    );
+  }
 }
 init();
 </script>
