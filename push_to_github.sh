@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
 
-if [ -z "$GITHUB_TOKEN" ]; then
-  echo "ERROR: GITHUB_TOKEN secret not set."
+TOKEN="${GITHUB_TOKEN:-$Hand_shooter_game_push_replit}"
+
+if [ -z "$TOKEN" ]; then
+  echo "ERROR: No GitHub token secret found."
+  echo "Make sure a secret named GITHUB_TOKEN or Hand_shooter_game_push_replit exists."
   exit 1
 fi
 
-git remote set-url origin "https://shivamsaurabh76:${GITHUB_TOKEN}@github.com/shivamsaurabh76/Hand-Shooter-Game.git"
+git remote set-url origin "https://shivamsaurabh76:${TOKEN}@github.com/shivamsaurabh76/Hand-Shooter-Game.git"
 
 # Stage any new local changes
 git add -A
