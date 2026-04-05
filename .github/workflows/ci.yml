@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint-and-check:
-    name: Lint & Import Check
+    name: Lint and Import Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,45 +27,57 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Syntax check — app/main.py
-        run: python -m py_compile app/main.py && echo "OK: app/main.py"
+      - name: Syntax check main entrypoint
+        run: |
+          python -m py_compile app/main.py
+          echo "OK: app/main.py"
 
-      - name: Syntax check — app/game.py
-        run: python -m py_compile app/game.py && echo "OK: app/game.py"
+      - name: Syntax check legacy module
+        run: |
+          python -m py_compile app/game.py
+          echo "OK: app/game.py"
 
-      - name: Import smoke test — Streamlit entrypoint
+      - name: Import smoke test Streamlit entrypoint
         env:
           CI: "true"
         run: |
-          python - <<'PY'
-          import sys, importlib.util, types
+          python - <<'PYEOF'
+          import sys
+          import types
 
-          # Stub streamlit so we don't need a running server
           st = types.ModuleType("streamlit")
-          class _Ctx:
+
+          class FakeCtx:
               headers = {}
-          st.context = _Ctx()
+          st.context = FakeCtx()
           st.set_page_config = lambda **kw: None
           st.markdown = lambda *a, **kw: None
-          st.expander = lambda *a, **kw: _Ctx()
           st.error = lambda *a, **kw: None
-          _Ctx.__enter__ = lambda s: s
-          _Ctx.__exit__ = lambda s, *a: None
+
+          class FakeExpander:
+              def __enter__(self):
+                  return self
+              def __exit__(self, *a):
+                  return False
+
+          st.expander = lambda *a, **kw: FakeExpander()
           sys.modules["streamlit"] = st
 
+          import importlib.util
           spec = importlib.util.spec_from_file_location("main", "app/main.py")
-          mod  = importlib.util.module_from_spec(spec)
+          mod = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(mod)
-          print("OK: app/main.py imported cleanly")
-          PY
+          print("OK: app/main.py imported without errors")
+          PYEOF
 
-      - name: Verify game.html exists and has required content
+      - name: Verify game HTML has required content
         run: |
-          python - <<'PY'
+          python - <<'PYEOF'
           from pathlib import Path
-          html = Path("app/static/game.html").read_text()
-          assert "HandLandmarker" in html, "Missing HandLandmarker in game.html"
-          assert "START" in html,          "Missing START button in game.html"
-          assert "STOP"  in html,          "Missing STOP button in game.html"
-          print("OK: app/static/game.html looks correct")
-          PY
+          html = Path("app/static/game.html").read_text(encoding="utf-8")
+          assert "HandLandmarker" in html, "Missing HandLandmarker"
+          assert "START" in html, "Missing START button"
+          assert "STOP" in html, "Missing STOP button"
+          assert "delegate" in html, "Missing delegate config"
+          print("OK: app/static/game.html content verified")
+          PYEOF

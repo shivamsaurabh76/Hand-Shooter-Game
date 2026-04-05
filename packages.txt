@@ -1,2 +1,1 @@
-# No system packages required.
-# All AI (MediaPipe) runs in the browser via JavaScript — no OpenCV or GL needed.
+
