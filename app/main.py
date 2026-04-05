@@ -120,8 +120,7 @@ html, body, [data-testid="stAppViewContainer"] {
 """, unsafe_allow_html=True)
 
     # ── Resolve game URL ─────────────────────────────────────────────────
-    # Priority: st.context.headers Host → REPLIT_DEV_DOMAIN → relative path
-    _game_url = "/app/static/game.html?v=13"
+    _game_url = "/app/static/game.html"
     try:
         _host = ""
         _headers = getattr(st.context, "headers", None)
@@ -129,24 +128,32 @@ html, body, [data-testid="stAppViewContainer"] {
             _host = _headers.get("Host", "") or _headers.get("host", "")
         if _host:
             _proto = "http" if _host.startswith("localhost") else "https"
-            _game_url = f"{_proto}://{_host}/app/static/game.html?v=13"
+            _game_url = f"{_proto}://{_host}/app/static/game.html"
         else:
             _dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
             if _dev:
-                _game_url = f"https://{_dev}/app/static/game.html?v=13"
+                _game_url = f"https://{_dev}/app/static/game.html"
     except Exception:
         pass
 
-    # ── Game iframe ──────────────────────────────────────────────────────
+    # ── Play button — opens game as a full browser page (no iframe) ───────
     st.markdown(
         f"""
-        <iframe
-          src="{_game_url}"
-          width="100%"
-          height="600"
-          allow="camera; microphone; autoplay"
-          style="border:none; border-radius:14px; display:block;"
-        ></iframe>
+<div style="text-align:center; padding:28px 0 18px;">
+  <a href="{_game_url}" target="_top"
+     style="display:inline-block; background:#FFD700; color:#000;
+            font-family:'Orbitron',sans-serif; font-weight:900;
+            font-size:clamp(1.1rem,3vw,1.4rem); letter-spacing:0.08em;
+            padding:16px 52px; border-radius:14px; text-decoration:none;
+            box-shadow:0 4px 28px rgba(255,215,0,0.45);
+            transition:transform 0.1s;">
+    &#9658;&nbsp; PLAY GAME
+  </a>
+  <p style="color:rgba(255,255,255,0.45); font-size:0.8rem; margin:12px 0 0;">
+    Opens the game &nbsp;&bull;&nbsp; allow camera when prompted &nbsp;&bull;&nbsp;
+    wait ~15 s for AI to load
+  </p>
+</div>
         """,
         unsafe_allow_html=True,
     )
